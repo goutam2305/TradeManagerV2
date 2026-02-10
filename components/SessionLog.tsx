@@ -1,6 +1,6 @@
-
 import React from 'react';
 import { Session } from '../types';
+import { aggregateSessions, computeAnalytics } from '../analyticsEngine';
 
 interface SessionLogProps {
   sessions: Session[];
@@ -9,9 +9,10 @@ interface SessionLogProps {
 }
 
 const SessionLog: React.FC<SessionLogProps> = ({ sessions, onDelete, onClearAll }) => {
-  const totalPnL = sessions.reduce((sum, s) => sum + (s.finalBalance - s.initialCapital), 0);
-  const totalWins = sessions.reduce((sum, s) => sum + s.totalWin, 0);
-  const totalLoss = sessions.reduce((sum, s) => sum + s.totalLoss, 0);
+  const analytics = aggregateSessions(sessions);
+  const totalPnL = analytics.accountGain;
+  const totalWins = analytics.winTrades;
+  const totalLoss = analytics.lossTrades;
 
   return (
     <div className="p-8 space-y-8 max-w-[1600px] w-full mx-auto">
@@ -80,18 +81,20 @@ const SessionLog: React.FC<SessionLogProps> = ({ sessions, onDelete, onClearAll 
             </thead>
             <tbody className="divide-y divide-border-ui">
               {sessions.map((session, i) => {
-                const profit = session.finalBalance - session.initialCapital;
+                const sessionStats = computeAnalytics(session.trades);
+                const profit = sessionStats.accountGain;
+                const finalBalance = sessionStats.finalCapital;
                 return (
                   <tr key={session.id} className="hover:bg-slate-800/20 transition-colors">
                     <td className="p-3 text-center text-xs font-bold text-slate-400 border-r border-border-ui">{sessions.length - i}</td>
                     <td className="p-3 text-xs text-slate-300 border-r border-border-ui">{session.date}</td>
                     <td className="p-3 text-xs font-medium text-slate-300 border-r border-border-ui">${session.initialCapital.toLocaleString()}</td>
-                    <td className="p-3 text-xs font-bold text-white border-r border-border-ui">${session.finalBalance.toLocaleString()}</td>
+                    <td className="p-3 text-xs font-bold text-white border-r border-border-ui">${finalBalance.toLocaleString()}</td>
                     <td className={`p-3 text-xs font-bold border-r border-border-ui ${profit >= 0 ? 'text-primary' : 'text-danger'}`}>
                       {profit >= 0 ? '+' : ''}${profit.toLocaleString()}
                     </td>
                     <td className="p-3 text-center">
-                      <button 
+                      <button
                         onClick={() => onDelete(session.id)}
                         className="p-1.5 text-slate-600 hover:text-danger transition-colors"
                       >

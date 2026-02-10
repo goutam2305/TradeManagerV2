@@ -13,8 +13,8 @@ export interface Trade {
   no: number;
   result: 'W' | 'L' | '-' | null;
   tradeAmt: number;
-  returnVal: number;
-  balance: number;
+  pnl: number;
+  capital_after: number;
   statusText?: string;
 }
 
@@ -26,11 +26,11 @@ export interface SessionConfig {
   currency: string;
   stopLossPercent: number;
   targetGainPercent: number;
-  
+
   // Daily Goals
   profitTarget: number;
   dailyGoalFormat: '%' | '$';
-  
+
   // Options
   stopLossAlert: number;
   sessionEndAlert: boolean;

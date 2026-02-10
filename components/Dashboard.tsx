@@ -1,35 +1,54 @@
-
 import React from 'react';
 import { Session } from '../types';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { aggregateSessions } from '../analyticsEngine';
 
 interface DashboardProps {
   sessions: Session[];
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ sessions }) => {
-  const netPnL = sessions.reduce((sum, s) => sum + (s.finalBalance - s.initialCapital), 0);
-  const winRate = sessions.length > 0 
-    ? (sessions.filter(s => s.finalBalance > s.initialCapital).length / sessions.length) * 100 
-    : 0;
+  const analytics = aggregateSessions(sessions);
 
-  // Mock data for equity curve if no sessions
-  const chartData = sessions.length > 0 
-    ? sessions.map((s, i) => ({ name: `S${i+1}`, balance: s.finalBalance }))
+  // Create equity curve data from session history
+  const chartData = sessions.length > 0
+    ? sessions.slice().reverse().map((s, i) => ({
+      name: `S${i + 1}`,
+      balance: s.finalBalance
+    }))
     : [
-        { name: 'Start', balance: 500 },
-        { name: 'S1', balance: 512 },
-        { name: 'S2', balance: 508 },
-        { name: 'S3', balance: 525 },
-        { name: 'S4', balance: 515 },
-        { name: 'S5', balance: 540 }
-      ];
+      { name: 'Start', balance: 0 },
+    ];
 
   const stats = [
-    { label: 'Net P&L', value: `$${netPnL.toLocaleString()}`, trend: '+14.2%', icon: 'payments', color: 'primary' },
-    { label: 'Win Rate', value: `${winRate.toFixed(1)}%`, progress: winRate, icon: 'adjust', color: 'primary' },
-    { label: 'Profit Factor', value: '2.84', sub: 'Gross Win / Gross Loss', icon: 'scale', color: 'primary' },
-    { label: 'Avg Daily Return', value: '$412.10', trend: '-2.4%', icon: 'query_stats', color: 'danger' },
+    {
+      label: 'Net P&L',
+      value: `${analytics.accountGain >= 0 ? '+' : '-'}$${Math.abs(analytics.accountGain).toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
+      trend: analytics.accountGainPercent >= 0 ? `+${analytics.accountGainPercent.toFixed(1)}%` : `${analytics.accountGainPercent.toFixed(1)}%`,
+      icon: 'payments',
+      color: analytics.accountGain >= 0 ? 'primary' : 'danger'
+    },
+    {
+      label: 'Win Rate',
+      value: `${(analytics.winRate * 100).toFixed(1)}%`,
+      progress: analytics.winRate * 100,
+      icon: 'adjust',
+      color: 'primary'
+    },
+    {
+      label: 'Profit Factor',
+      value: analytics.profitFactor.toFixed(2),
+      sub: 'Gross Win / Gross Loss',
+      icon: 'scale',
+      color: 'primary'
+    },
+    {
+      label: 'Total Trades',
+      value: analytics.totalTrades.toString(),
+      sub: `${analytics.winTrades} W / ${analytics.lossTrades} L`,
+      icon: 'query_stats',
+      color: 'primary'
+    },
   ];
 
   return (
@@ -80,14 +99,14 @@ const Dashboard: React.FC<DashboardProps> = ({ sessions }) => {
               <AreaChart data={chartData}>
                 <defs>
                   <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#2dd4bf" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#2dd4bf" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#2dd4bf" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#2dd4bf" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" />
                 <XAxis dataKey="name" stroke="#64748b" fontSize={10} axisLine={false} tickLine={false} />
                 <YAxis stroke="#64748b" fontSize={10} axisLine={false} tickLine={false} tickFormatter={(val) => `$${val}`} domain={['auto', 'auto']} />
-                <Tooltip 
+                <Tooltip
                   contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', borderRadius: '8px', fontSize: '10px' }}
                   itemStyle={{ color: '#2dd4bf', fontWeight: 'bold' }}
                 />
@@ -113,12 +132,11 @@ const Dashboard: React.FC<DashboardProps> = ({ sessions }) => {
             </div>
             <div className="grid grid-cols-7 gap-2 flex-1">
               {Array.from({ length: 28 }).map((_, i) => (
-                <div key={i} className={`aspect-square flex items-center justify-center rounded-lg text-xs font-bold ${
-                  i === 15 ? 'bg-white text-slate-900 shadow-lg' : 
+                <div key={i} className={`aspect-square flex items-center justify-center rounded-lg text-xs font-bold ${i === 15 ? 'bg-white text-slate-900 shadow-lg' :
                   [4, 8, 12, 18].includes(i) ? 'bg-primary/20 text-primary border border-primary/20' :
-                  [5, 13, 22].includes(i) ? 'bg-danger/20 text-danger border border-danger/20' :
-                  'border border-border-ui text-slate-600'
-                }`}>
+                    [5, 13, 22].includes(i) ? 'bg-danger/20 text-danger border border-danger/20' :
+                      'border border-border-ui text-slate-600'
+                  }`}>
                   {i + 1}
                 </div>
               ))}

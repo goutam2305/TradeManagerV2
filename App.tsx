@@ -11,8 +11,28 @@ import Auth from './components/Auth';
 
 const App: React.FC = () => {
   const [state, setState] = useState<AppState>(() => {
+    // Migration: Reset state if using old returnVal/balance structure or incompatible version
     const saved = localStorage.getItem('tradeflow_state');
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        // Check if any trade in any session has the old property name
+        const hasLegacyData = parsed.sessions?.some((s: any) =>
+          s.trades?.some((t: any) => 'returnVal' in t || 'balance' in t)
+        ) || parsed.activeSession?.trades?.some((t: any) => 'returnVal' in t || 'balance' in t);
+
+        if (hasLegacyData) {
+          console.warn("Legacy data detected. Resetting state for compatibility.");
+          localStorage.removeItem('tradeflow_state');
+          localStorage.removeItem('tradeflow_config');
+          localStorage.removeItem('tradeflow_counter');
+        } else {
+          return parsed;
+        }
+      } catch (e) {
+        console.error("Failed to parse saved state:", e);
+      }
+    }
     return {
       view: AppView.LANDING,
       user: null,
@@ -67,10 +87,10 @@ const App: React.FC = () => {
   }, []);
 
   const deleteSession = useCallback((id: string) => {
-     setState(prev => ({
-       ...prev,
-       sessions: prev.sessions.filter(s => s.id !== id)
-     }));
+    setState(prev => ({
+      ...prev,
+      sessions: prev.sessions.filter(s => s.id !== id)
+    }));
   }, []);
 
   const clearAllSessions = useCallback(() => {
@@ -87,8 +107,8 @@ const App: React.FC = () => {
         return <Dashboard sessions={state.sessions} />;
       case AppView.TRADEMANAGER:
         return (
-          <TradeManager 
-            activeSession={state.activeSession} 
+          <TradeManager
+            activeSession={state.activeSession}
             sessions={state.sessions}
             onUpdateSession={updateActiveSession}
             onSaveSession={saveSession}
@@ -96,9 +116,9 @@ const App: React.FC = () => {
         );
       case AppView.SESSION_LOG:
         return (
-          <SessionLog 
-            sessions={state.sessions} 
-            onDelete={deleteSession} 
+          <SessionLog
+            sessions={state.sessions}
+            onDelete={deleteSession}
             onClearAll={clearAllSessions}
           />
         );
@@ -120,10 +140,10 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar 
-        currentView={state.view} 
-        onNavigate={setView} 
-        user={state.user} 
+      <Sidebar
+        currentView={state.view}
+        onNavigate={setView}
+        user={state.user}
         onLogout={logout}
       />
       <main className="flex-1 flex flex-col h-screen overflow-hidden bg-background-main">
